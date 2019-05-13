@@ -82,9 +82,15 @@ function attempt_move(del_x, del_y) {
 function attempt_rotate_L() {
 	current_piece.rotate_L();
 	
+	let position_validity = is_invalid_position(current_piece);
+	if (position_validity) {
+		current_piece.rotate_R();
+	}
+
 	//If you can't rotate, shift over a bit and try again
 	//TODO: This doesn't work very well when it hits other blocks
-	let position_validity = is_invalid_position(current_piece);
+	//For now, if you can't don't.
+	/*
 	switch(position_validity) {
 		case 1:
 			current_piece.rotate_R();
@@ -102,14 +108,20 @@ function attempt_rotate_L() {
 			attempt_rotate_L();
 			break;
 	}
+	*/
 }
 
 function attempt_rotate_R() {
 	current_piece.rotate_R();
 	
+	let position_validity = is_invalid_position(current_piece);
+	if (position_validity) {
+		current_piece.rotate_L();
+	}
 	//If you can't rotate, shift over a bit and try again
 	//TODO: This doesn't work very well when it hits other blocks
-	let position_validity = is_invalid_position(current_piece);
+	//For now, if you can't don't.
+	/*
 	switch(position_validity) {
 		case 1:
 			current_piece.rotate_L();
@@ -127,6 +139,7 @@ function attempt_rotate_R() {
 			attempt_rotate_R();
 			break;
 	}
+	*/
 }
 
 //TODO: Try to make this into a single higher order function
