@@ -56,7 +56,7 @@ function handle_key_press(key) {
 			attempt_move(1, 0);
 			break;
 		case 'down':
-			attempt_move(0, 1);
+			tick();
 			break;
 		case 'rotate_R':
 			attempt_rotate_R();
@@ -65,11 +65,13 @@ function handle_key_press(key) {
 			attempt_rotate_L();
 			break;
 		case 'drop':
-			//TODO
+			solidify(get_ghost_piece(current_piece));
+			current_piece = piece_bag.get_piece();
 			break;
 	}
 	draw();
 }
+
 
 function attempt_move(del_x, del_y) {
 	current_piece.move(del_x, del_y);
@@ -148,6 +150,7 @@ function attempt_rotate_R() {
  * 1 = collided left wall
  * 2 = collided right wall
  * 3 = collided floor
+ * 4 = collided with other blocks
  */
 function is_invalid_position(piece) {
 	let piece_x = piece.get_x();
@@ -173,12 +176,14 @@ function is_invalid_position(piece) {
 				if (block_y >= ROWS) {
 					return 3;
 				}
+				if (block_y >= 0 && game_board[block_x][block_y] != 0) {
+					return 4;
+				}
 			}
 			return 0;
 
 		}, 0);
 	}, 0);
-	console.log(result);
 
 	return result;
 }
@@ -186,19 +191,21 @@ function is_invalid_position(piece) {
 function Create_Piece_Bag() {
 	return {
 		get_piece: function() {
+			//TODO: Have some better ordering
+			//TODO: Show next pieces
 			let rand_num = Math.floor(Math.random() * 7);
 			let piece = PIECES[rand_num];
-			return Create_Piece(piece);
+			return Create_Piece(3, -3, piece, 0);
 		}
 	}
 }
 
-function Create_Piece(type) {
-	let _x = 4;
-	let _y = 2;
+function Create_Piece(x, y, type, orientation) {
+	let _x = x;
+	let _y = y;
 
 	let _type = type;
-	let _orientation = 0;
+	let _orientation = orientation;
 	let _shape = PIECE_SHAPES[_type][_orientation];
 	const possible_orientations = PIECE_SHAPES[_type].length;
 
@@ -208,6 +215,10 @@ function Create_Piece(type) {
 
 	function get_y() {
 		return _y;
+	}
+
+	function get_orientation() {
+		return _orientation;
 	}
 
 	function get_shape() {
@@ -238,6 +249,7 @@ function Create_Piece(type) {
 	return Object.freeze({
 		get_x,
 		get_y,
+		get_orientation,
 		get_shape,
 		get_type,
 		move,
@@ -250,15 +262,55 @@ function make_empty_board() {
 	return Array.from(new Array(COLS), () => new Array(ROWS).fill(0));
 }
 
-function draw_block(x, y, piece_id) {
-	ctx.fillStyle = COLORS[piece_id];
-	ctx.fillRect( BLOCK_WIDTH * x, BLOCK_HEIGHT * y, BLOCK_WIDTH - 1 , BLOCK_HEIGHT - 1 );
+function draw_ghost_block(x, y) {
+	ctx.strokeStyle = 'orange';
   ctx.strokeRect( BLOCK_WIDTH * x, BLOCK_HEIGHT * y, BLOCK_WIDTH - 1 , BLOCK_HEIGHT - 1 );
 }
 
+function draw_block(x, y, piece_id) {
+	ctx.fillStyle = COLORS[piece_id];
+	ctx.fillRect( BLOCK_WIDTH * x, BLOCK_HEIGHT * y, BLOCK_WIDTH - 1 , BLOCK_HEIGHT - 1 );
+	ctx.strokeStyle = 'black';
+  ctx.strokeRect( BLOCK_WIDTH * x, BLOCK_HEIGHT * y, BLOCK_WIDTH - 1 , BLOCK_HEIGHT - 1 );
+}
+
+//TODO: reorganize this hacky function
+function delete_full_rows() {
+	let full_rows = game_board.reduce( (mask, column) => {
+		return column.map( (item, idx) => {
+			return item && mask[idx]
+		});
+
+	}, new Array(ROWS).fill(1))
+
+	full_rows.reduceRight( ( _ , is_full_row, idx) => {
+		console.log('bool', is_full_row);
+		console.log('idx', idx);
+		if (is_full_row) {
+			game_board.forEach( (column) => column.splice(idx, 1));
+		}
+	}, 0)
+
+	full_rows.reduceRight( ( _ , is_full_row, idx) => {
+		if (is_full_row) {
+			game_board.forEach( (column) => column.unshift(0));
+		}
+	}, 0)
+
+}
+
 function draw_board() {
-	ctx.fillStyle = "white";
+	ctx.fillStyle = 'white';
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.strokeStyle = 'black';
+	ctx.strokeRect(0, 0, canvas.width, canvas.height);
+	game_board.forEach( (column, x) => {
+		column.forEach( (piece_id, y) => {
+			if (piece_id != 0) {
+				draw_block(x, y, piece_id);
+			}
+		});
+	})
 }
 
 function draw_piece() {
@@ -274,8 +326,31 @@ function draw_piece() {
 	})
 }
 
+function solidify(piece) {
+	let piece_x = piece.get_x();
+	let piece_y = piece.get_y();
+	let piece_type = PIECE_ENUM[piece.get_type()];
+	current_piece.get_shape().forEach( (column, rel_x) => {
+		column.forEach( (is_present, rel_y) => {
+			if (is_present) {
+				game_board[piece_x + rel_x][piece_y + rel_y] = piece_type;
+			}
+		});
+	})
+}
+	
+
 function tick() {
 	//TODO: Move pieces and check for collision
+	current_piece.move(0, 1);
+	if(is_invalid_position(current_piece)) {
+		current_piece.move(0, -1);
+		solidify(current_piece);
+		current_piece = piece_bag.get_piece();
+	}
+	clearInterval(gametick_interval);
+	gametick_interval = setInterval(tick, 500);
+	delete_full_rows();
 	draw();
 }
 
@@ -283,15 +358,69 @@ function setup() {
 	game_board = make_empty_board();
 	piece_bag = Create_Piece_Bag();
 	current_piece = piece_bag.get_piece();
-	interval = setInterval(tick, 500);
+	//TODO: Difficulty Scaling & Score
+	gametick_interval = setInterval(tick, 500);
 }
+
+function get_airspace_of_col(x) {
+	let column = game_board[x];
+	let height = 0;
+	while (height < ROWS && column[height] === 0) {
+		height++;
+	}
+	return height - 1;
+}
+
+//TODO: Doesn't handle the piece being under overhangs
+function get_ghost_piece(piece) {
+	let piece_x = piece.get_x();
+	let piece_y = piece.get_y();
+	let orientation = piece.get_orientation();
+	let piece_type = piece.get_type();
+	let largest_ys = piece.get_shape().reduce( (largest_ys, column) => {
+		let largest_y_in_column = column.reduce( (largest_y, is_present, rel_y) => {
+			if (is_present && rel_y > largest_y) {
+				return rel_y;
+			}
+			return largest_y;
+		}, -3);
+
+		largest_ys.push(largest_y_in_column);
+		return largest_ys;
+	}, []);
+
+	let dist_to_ground = Math.min(...(largest_ys.map((y_coord, idx) => {
+		if (piece_x + idx < 0 || piece_x + idx >= COLS) {
+			return 20;
+		}
+		return get_airspace_of_col(piece_x + idx) - y_coord - piece_y;
+	})));
+
+	return Create_Piece(piece_x, piece_y + dist_to_ground, piece_type, orientation);
+}
+
+//TODO: Combine this with draw_piece
+function draw_ghost() {
+	let ghost = get_ghost_piece(current_piece);
+	let piece_x = ghost.get_x();
+	let piece_y = ghost.get_y();
+	current_piece.get_shape().forEach( (column, rel_x) => {
+		column.forEach( (is_present, rel_y) => {
+			if (is_present) {
+				draw_ghost_block(piece_x + rel_x, piece_y + rel_y);
+			}
+		});
+	})
+}
+
+
 
 function draw() {
 	draw_board();
+	draw_ghost();
 	draw_piece();
 }
 
+
 setup();
-draw();
-console.log(game_board);
 
