@@ -74,7 +74,7 @@ function handle_key_press(key) {
 function attempt_move(del_x, del_y) {
 	current_piece.move(del_x, del_y);
 	
-	if (!is_valid_position(current_piece)) {
+	if (is_invalid_position(current_piece)) {
 		current_piece.move(-del_x, -del_y);
 	}
 }
@@ -83,14 +83,24 @@ function attempt_rotate_L() {
 	current_piece.rotate_L();
 	
 	//If you can't rotate, shift over a bit and try again
-	if (!is_valid_position(current_piece)) {
-		if (current_piece.get_x() < COLS/2) {
+	//TODO: This doesn't work very well when it hits other blocks
+	let position_validity = is_invalid_position(current_piece);
+	switch(position_validity) {
+		case 1:
+			current_piece.rotate_R();
 			current_piece.move(1, 0);
-			attempt_rotate_L;
-		} else {
+			attempt_rotate_L();
+			break;
+		case 2:
+			current_piece.rotate_R();
 			current_piece.move(-1, 0);
-			attempt_rotate_L;
-		}
+			attempt_rotate_L();
+			break;
+		case 3:
+			current_piece.rotate_R();
+			current_piece.move(0, -1);
+			attempt_rotate_L();
+			break;
 	}
 }
 
@@ -98,17 +108,28 @@ function attempt_rotate_R() {
 	current_piece.rotate_R();
 	
 	//If you can't rotate, shift over a bit and try again
-	if (!is_valid_position(current_piece)) {
-		if (current_piece.get_x() < COLS/2) {
+	//TODO: This doesn't work very well when it hits other blocks
+	let position_validity = is_invalid_position(current_piece);
+	switch(position_validity) {
+		case 1:
+			current_piece.rotate_L();
 			current_piece.move(1, 0);
-			attempt_rotate_R;
-		} else {
+			attempt_rotate_R();
+			break;
+		case 2:
+			current_piece.rotate_L();
 			current_piece.move(-1, 0);
-			attempt_rotate_R;
-		}
+			attempt_rotate_R();
+			break;
+		case 3:
+			current_piece.rotate_L();
+			current_piece.move(0, -1);
+			attempt_rotate_R();
+			break;
 	}
 }
 
+//TODO: Try to make this into a single higher order function
 /* returns:
  * 0 = is valid position
  * 1 = collided left wall
@@ -120,7 +141,7 @@ function is_invalid_position(piece) {
 	let piece_y = piece.get_y();
 
 	let result = current_piece.get_shape().reduce( (acc, column, rel_x) => {
-		return acc && column.reduce( (acc, is_present, rel_y) => {
+		return acc || column.reduce( (acc, is_present, rel_y) => {
 
 			if (acc) {
 				return acc;
@@ -129,10 +150,18 @@ function is_invalid_position(piece) {
 			let block_x = rel_x + piece_x;
 			let block_y = rel_y + piece_y;
 
-			if (is_present && (block_x >= COLS || block_x < 0 || block_y >= ROWS)) {
-				return false;
+			if (is_present) {
+				if (block_x < 0) {
+					return 1;
+				}
+				if (block_x >= COLS) {
+					return 2;
+				}
+				if (block_y >= ROWS) {
+					return 3;
+				}
 			}
-			return true;
+			return 0;
 
 		}, 0);
 	}, 0);
