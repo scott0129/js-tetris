@@ -50,19 +50,19 @@ let gametick_interval;
 function handle_key_press(key) {
 	switch(key) {
 		case 'left':
-			attempt_move(-1, 0, 0);
+			attempt_move(-1, 0);
 			break;
 		case 'right':
-			attempt_move(1, 0, 0);
+			attempt_move(1, 0);
 			break;
 		case 'down':
-			attempt_move(0, 1, 0);
+			attempt_move(0, 1);
 			break;
 		case 'rotate_R':
-			attempt_move(0, 0, 1);
+			attempt_rotate_R();
 			break;
 		case 'rotate_L':
-			attempt_move(0, 0, -1);
+			attempt_rotate_L();
 			break;
 		case 'drop':
 			//TODO
@@ -71,18 +71,74 @@ function handle_key_press(key) {
 	draw();
 }
 
-function attempt_move(del_x, del_y, rot) {
-	let ghost = Object.c;
-
-	if (del_x || del_y) {
-		current_piece.move(del_x, del_y);
+function attempt_move(del_x, del_y) {
+	current_piece.move(del_x, del_y);
+	
+	if (!is_valid_position(current_piece)) {
+		current_piece.move(-del_x, -del_y);
 	}
+}
 
-	if (rot === 1) {
-		current_piece.rotate_R();
-	} else if (rot === -1) {
-		current_piece.rotate_L();
+function attempt_rotate_L() {
+	current_piece.rotate_L();
+	
+	//If you can't rotate, shift over a bit and try again
+	if (!is_valid_position(current_piece)) {
+		if (current_piece.get_x() < COLS/2) {
+			current_piece.move(1, 0);
+			attempt_rotate_L;
+		} else {
+			current_piece.move(-1, 0);
+			attempt_rotate_L;
+		}
 	}
+}
+
+function attempt_rotate_R() {
+	current_piece.rotate_R();
+	
+	//If you can't rotate, shift over a bit and try again
+	if (!is_valid_position(current_piece)) {
+		if (current_piece.get_x() < COLS/2) {
+			current_piece.move(1, 0);
+			attempt_rotate_R;
+		} else {
+			current_piece.move(-1, 0);
+			attempt_rotate_R;
+		}
+	}
+}
+
+/* returns:
+ * 0 = is valid position
+ * 1 = collided left wall
+ * 2 = collided right wall
+ * 3 = collided floor
+ */
+function is_invalid_position(piece) {
+	let piece_x = piece.get_x();
+	let piece_y = piece.get_y();
+
+	let result = current_piece.get_shape().reduce( (acc, column, rel_x) => {
+		return acc && column.reduce( (acc, is_present, rel_y) => {
+
+			if (acc) {
+				return acc;
+			}
+
+			let block_x = rel_x + piece_x;
+			let block_y = rel_y + piece_y;
+
+			if (is_present && (block_x >= COLS || block_x < 0 || block_y >= ROWS)) {
+				return false;
+			}
+			return true;
+
+		}, 0);
+	}, 0);
+	console.log(result);
+
+	return result;
 }
 
 function Create_Piece_Bag() {
@@ -97,7 +153,7 @@ function Create_Piece_Bag() {
 
 function Create_Piece(type) {
 	let _x = 4;
-	let _y = 10;
+	let _y = 2;
 
 	let _type = type;
 	let _orientation = 0;
