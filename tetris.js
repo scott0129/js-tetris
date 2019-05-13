@@ -11,7 +11,7 @@ document.body.onkeydown = function( e ) {
     };
 
     if ( typeof keys[ e.keyCode ] != 'undefined' ) {
-        handle_key_press( keys[ e.keyCode ] );
+      handle_key_press( keys[ e.keyCode ] );
     }
 };
 
@@ -50,25 +50,39 @@ let gametick_interval;
 function handle_key_press(key) {
 	switch(key) {
 		case 'left':
-			current_piece.move(-1, 0);
+			attempt_move(-1, 0, 0);
 			break;
 		case 'right':
-			current_piece.move(1, 0);
+			attempt_move(1, 0, 0);
 			break;
 		case 'down':
-			current_piece.move(0, 1);
+			attempt_move(0, 1, 0);
 			break;
 		case 'rotate_R':
-			current_piece.rotate_R();
+			attempt_move(0, 0, 1);
 			break;
 		case 'rotate_L':
-			current_piece.rotate_L();
+			attempt_move(0, 0, -1);
 			break;
 		case 'drop':
 			//TODO
 			break;
 	}
-	draw()
+	draw();
+}
+
+function attempt_move(del_x, del_y, rot) {
+	let ghost = Object.c;
+
+	if (del_x || del_y) {
+		current_piece.move(del_x, del_y);
+	}
+
+	if (rot === 1) {
+		current_piece.rotate_R();
+	} else if (rot === -1) {
+		current_piece.rotate_L();
+	}
 }
 
 function Create_Piece_Bag() {
@@ -90,40 +104,48 @@ function Create_Piece(type) {
 	let _shape = PIECE_SHAPES[_type][_orientation];
 	const possible_orientations = PIECE_SHAPES[_type].length;
 
-	return {
-		get_x: function() {
-			return _x;
-		},
-
-		get_y: function() {
-			return _y;
-		},
-
-		get_shape: function() {
-			return _shape;
-		},
-
-		get_type: function() {
-			return _type;
-		},
-
-		move: function(del_x, del_y) {
-			_x += del_x;
-			_y += del_y;
-		},
-
-		rotate_R: function() {
-			_orientation += 1;
-			_orientation %= possible_orientations;
-			_shape = PIECE_SHAPES[_type][_orientation];
-		},
-
-		rotate_L: function() {
-			_orientation += 3;
-			_orientation %= possible_orientations;
-			_shape = PIECE_SHAPES[_type][_orientation];
-		}
+	function get_x() {
+		return _x;
 	}
+
+	function get_y() {
+		return _y;
+	}
+
+	function get_shape() {
+		return _shape;
+	}
+
+	function get_type() {
+		return _type;
+	}
+
+	function move(del_x, del_y) {
+		_x += del_x;
+		_y += del_y;
+	}
+
+	function rotate_R() {
+		_orientation += 1;
+		_orientation %= possible_orientations;
+		_shape = PIECE_SHAPES[_type][_orientation];
+	}
+
+	function rotate_L() {
+		_orientation += 3;
+		_orientation %= possible_orientations;
+		_shape = PIECE_SHAPES[_type][_orientation];
+	}
+
+	return Object.freeze({
+		get_x,
+		get_y,
+		get_shape,
+		get_type,
+		move,
+		rotate_R,
+		rotate_L
+	})
 }
 
 function make_empty_board() {
@@ -163,7 +185,7 @@ function setup() {
 	game_board = make_empty_board();
 	piece_bag = Create_Piece_Bag();
 	current_piece = piece_bag.get_piece();
-	interval = setInterval(tick, 10);
+	interval = setInterval(tick, 500);
 }
 
 function draw() {
